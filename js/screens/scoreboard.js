@@ -9,6 +9,7 @@ export function registerScoreboardScreen(navigate, onSessionEnd) {
 
     let session, players, rounds, channel;
     let pendingScores = {};
+    let showHistory = false;
 
     async function load() {
       session = await fetchSession(code);
@@ -92,6 +93,42 @@ export function registerScoreboardScreen(navigate, onSessionEnd) {
         grid.appendChild(card);
       }
 
+      /* History toggle + section */
+      const historyBtn = createButton(
+        showHistory ? 'Verberg geschiedenis ▴' : 'Geschiedenis ▾',
+        () => { showHistory = !showHistory; render(); },
+        'btn btn--ghost btn--full history-toggle'
+      );
+
+      let historySection = null;
+      if (showHistory) {
+        historySection = el('div', { className: 'history-section' });
+        if (!rounds.length) {
+          const empty = el('p', { className: 'text-muted text-sm' });
+          empty.textContent = 'Nog geen rondes gespeeld.';
+          historySection.appendChild(empty);
+        } else {
+          for (const round of [...rounds].reverse()) {
+            const roundCard = el('div', { className: 'history-round' });
+            const title = el('p', { className: 'history-round__title' });
+            title.textContent = `Ronde ${round.round_number}`;
+            roundCard.appendChild(title);
+            for (const s of round.scores) {
+              const p = players.find(pl => pl.id === s.session_player_id);
+              const row = el('div', { className: 'history-round__row' });
+              const dot = el('div', { className: 'color-dot', style: { background: p ? p.color : '#888' } });
+              const name = el('span');
+              name.textContent = p ? p.name : '?';
+              const pts = el('span');
+              pts.textContent = s.points;
+              row.append(dot, name, pts);
+              roundCard.appendChild(row);
+            }
+            historySection.appendChild(roundCard);
+          }
+        }
+      }
+
       /* Round input rows */
       const inputSection = el('div', { className: 'round-inputs' });
       const roundLabel = el('p', { className: 'section-title' });
@@ -107,11 +144,12 @@ export function registerScoreboardScreen(navigate, onSessionEnd) {
         name.textContent = p.name;
 
         const btnMinus = el('button', { className: 'pill-btn', onClick: () => {
-          if (pendingScores[p.id] > 0) { pendingScores[p.id]--; valueEl.textContent = pendingScores[p.id]; }
+          pendingScores[p.id] = (pendingScores[p.id] ?? 0) - 1;
+          valueEl.textContent = pendingScores[p.id];
         }});
         btnMinus.textContent = '−';
 
-        const valueEl = el('span', { className: 'round-input-row__value' });
+        const valueEl = el('button', { className: 'round-input-row__value', onClick: () => openNumpad(p, valueEl) });
         valueEl.textContent = pendingScores[p.id] ?? 0;
 
         const btnPlus = el('button', { className: 'pill-btn', onClick: () => {
@@ -142,11 +180,19 @@ export function registerScoreboardScreen(navigate, onSessionEnd) {
           rounds = await fetchRounds(session.id);
           const newTotals = computeTotals(players, rounds);
 
-          /* Show deltas */
+          /* Show deltas + Pelt-melding */
+          const peltThreshold = session.max_points - 1;
           for (const p of players) {
-            const delta = (newTotals[p.id] ?? 0) - (prevTotals[p.id] ?? 0);
+            const before = prevTotals[p.id] ?? 0;
+            const after  = newTotals[p.id] ?? 0;
+            const delta  = after - before;
             if (delta && cardEls[p.id]) showDelta(cardEls[p.id], delta);
+            if (after === peltThreshold && before !== peltThreshold) {
+              showToast(`${p.name} staat op Pelt`, 'warning');
+            }
           }
+
+          for (const p of players) pendingScores[p.id] = 0;
 
           if (checkGameOver(newTotals, session.max_points)) {
             onSessionEnd(session, players, rounds);
@@ -191,7 +237,57 @@ export function registerScoreboardScreen(navigate, onSessionEnd) {
       endBtn.textContent = 'Beëindigen';
       footer.appendChild(endBtn);
 
-      wrap.append(header, grid, inputSection, controls, footer);
+      wrap.append(header, grid, historyBtn);
+      if (historySection) wrap.appendChild(historySection);
+      wrap.append(inputSection, controls, footer);
+    }
+
+    function openNumpad(p, valueEl) {
+      let typed = '';
+      let negative = (pendingScores[p.id] ?? 0) < 0;
+
+      const overlay = el('div', { className: 'numpad-overlay', onClick: (e) => { if (e.target === overlay) close(); } });
+      const card = el('div', { className: 'numpad-card' });
+      const title = el('p', { className: 'numpad-card__title' });
+      title.textContent = p.name;
+      const display = el('p', { className: 'numpad-display' });
+
+      function updateDisplay() {
+        const shown = typed || '0';
+        display.textContent = negative ? `-${shown}` : shown;
+      }
+      updateDisplay();
+
+      const grid = el('div', { className: 'numpad-grid' });
+      for (const digit of ['1','2','3','4','5','6','7','8','9','±','0','⌫']) {
+        const btn = el('button', { onClick: () => {
+          if (digit === '⌫') { typed = typed.slice(0, -1); }
+          else if (digit === '±') { negative = !negative; }
+          else { typed = (typed + digit).replace(/^0+(?=\d)/, ''); }
+          updateDisplay();
+        }});
+        btn.textContent = digit;
+        grid.appendChild(btn);
+      }
+
+      const actions = el('div', { className: 'numpad-actions' });
+      const btnCancel = createButton('Annuleren', () => close(), 'btn btn--ghost btn--full');
+      const btnOk = createButton('Bevestigen ✓', () => {
+        let value = typed ? parseInt(typed, 10) : 0;
+        if (negative) value = -value;
+        value = Math.min(value, session.max_points);
+        pendingScores[p.id] = value;
+        valueEl.textContent = value;
+        close();
+      }, 'btn btn--primary btn--full');
+      actions.append(btnCancel, btnOk);
+
+      card.append(title, display, grid, actions);
+      overlay.appendChild(card);
+
+      function close() { overlay.remove(); }
+
+      document.body.appendChild(overlay);
     }
 
     init();

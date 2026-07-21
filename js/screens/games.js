@@ -6,7 +6,7 @@ export function registerGamesScreen(navigate) {
     let games = getGames();
     let editingId = null;
     let newName = '';
-    let newMax = 10;
+    let newMax = 15;
 
     const wrap = el('div', { className: 'screen' });
 
@@ -74,14 +74,14 @@ export function registerGamesScreen(navigate) {
         if (!newMax || newMax < 2) { showToast('Ongeldig maximum', 'error'); return; }
         if (editingId) updateGame(editingId, { name: trimmed, maxPoints: newMax });
         else addGame(trimmed, newMax);
-        editingId = null; newName = ''; newMax = 10;
+        editingId = null; newName = ''; newMax = 15;
         render();
       });
       btnRow.appendChild(btnSave);
 
       if (editingId) {
         const btnCancel = createButton('Annuleren', () => {
-          editingId = null; newName = ''; newMax = 10; render();
+          editingId = null; newName = ''; newMax = 15; render();
         }, 'btn btn--ghost');
         btnRow.appendChild(btnCancel);
       }

@@ -48,7 +48,7 @@ export function deletePlayer(id) {
 export function getGames() {
   const games = load(KEYS.games);
   if (games) return games;
-  const defaults = [{ id: generateId(), name: 'Toepen', maxPoints: 10 }];
+  const defaults = [{ id: generateId(), name: 'Toepen', maxPoints: 15 }];
   save(KEYS.games, defaults);
   return defaults;
 }

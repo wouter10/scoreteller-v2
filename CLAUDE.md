@@ -56,10 +56,11 @@ round_scores    (round_id → rounds, session_player_id → session_players, poi
 - CSS: hergebruik bestaande custom properties (`--tap-min`, `--radius`, `--radius-sm`, `--transition`, kleurtokens). Klassenamen volgen losse BEM-stijl.
 - ES modules draaien in strict mode — gebruik geen `arguments.callee`. Zie `players.js` voor het `buildPicker()`-patroon als alternatief.
 - Render-functies die bij `registerScreen()` worden doorgegeven moeten **synchroon** een DOM-element retourneren. Gebruik nooit `async` op de outer render-functie — dat geeft een `Promise` terug waar `appendChild` een `Node` verwacht. Async werk (Supabase-fetches) hoort in een inner `init()` die je aanroept vóór de `return wrap;`.
+- **Overlay/modal-patroon** (bv. het numerieke toetsenbord in `scoreboard.js` `openNumpad()`): wordt aan `document.body` toegevoegd, niet aan `wrap` — `render()` doet `wrap.innerHTML = ''` en zou een overlay die aan `wrap` hangt wegvagen bij een realtime update (ander apparaat dat tegelijk een ronde bevestigt) terwijl de overlay open staat.
 
 ## 7. Mobiele/iOS-lessen (overgenomen uit v1)
 
-- **Geen `<input>` voor scoring** — bewust vermeden om iOS Safari auto-zoom bij focus te voorkomen. Bij tekst-/getalinvoer elders: minimaal `font-size: 16px`.
+- **Geen `<input>` voor scoring** — bewust vermeden om iOS Safari auto-zoom bij focus te voorkomen. Bij tekst-/getalinvoer elders: minimaal `font-size: 16px`. Voor handmatige score-invoer (grote getallen) gebruikt `scoreboard.js` daarom een eigen numeriek-toetsenbord-overlay (`openNumpad()`, knoppen 0-9/±/⌫) i.p.v. `<input type="number">`.
 - **`touch-action: manipulation`** staat globaal op `button` (style.css) om Safari's dubbeltik-zoom te voorkomen bij snel herhaald tikken (bijv. de +/− pill-knoppen).
 - **Geen `maximum-scale/user-scalable=no`** in viewport-meta — dat breekt pinch-zoom-toegankelijkheid.
 - **`.pill-btn` (+/− knoppen)** is 32px hoog, onder `--tap-min: 52px`. Bewust niet aangepast om de layout compact te houden.
@@ -72,13 +73,21 @@ round_scores    (round_id → rounds, session_player_id → session_players, poi
 - Supabase/CDN-requests worden bewust **niet gecached** door de service worker (URL-origin check in de fetch handler).
 - **Bekende valkuil**: `cdn.jsdelivr.net` ESM-build van `@supabase/supabase-js` bevat Node.js bare imports en werkt niet in browsers — altijd `esm.sh` gebruiken.
 
-## 9. Sessiedeling
+## 9. Scorebord: puntengrenzen, geschiedenis, invoer
+
+- Default `maxPoints` voor een nieuw/eerste "Toepen"-spel (localStorage-seed in `data.js`, en het "nieuw spel"-formulier in `games.js`) is **15**. `max_points` blijft volledig instelbaar per spel via het Spellen-scherm — dit is alleen de default, geen harde grens.
+- **"Op Pelt"-melding**: in `scoreboard.js` (`btnConfirm`-handler) wordt na elke bevestigde ronde per speler gecontroleerd of die *nét* op `session.max_points - 1` is beland (overgang t.o.v. vóór de ronde, niet bij elke render). Zo ja: `showToast('${naam} staat op Pelt', 'warning')`. Werkt generiek op basis van `max_points`, dus ongeacht de daadwerkelijk ingestelde puntengrens.
+- **Ronde-invoer wordt na bevestigen gereset** naar 0 (`pendingScores`), net als bij "Wis invoer" — anders bleven de zojuist ingevulde waarden staan als startpunt voor de volgende ronde.
+- **Negatieve scores zijn toegestaan** in de ronde-invoer: de min-knop (`btnMinus`) heeft geen ondergrens (bewust, op gebruikersverzoek). De plus-knop blijft geklemd op `session.max_points`.
+- **Ronde-geschiedenis**: inklapbare sectie op het scorebord (`showHistory`-toggle in `scoreboard.js`, geen apart scherm) die per ronde (nieuwste eerst) de ingevulde punten per speler toont, opgebouwd uit de al aanwezige `rounds`/`fetchRounds`-data — geen extra Supabase-call.
+
+## 10. Sessiedeling
 
 - Sessiecode (6 uppercase alfanumerieke karakters) wordt getoond in de header van het scorebord en is klikbaar: deelt via Web Share API op ondersteunde apparaten, of kopieert de `?join=CODE` URL naar klembord.
 - `?join=` URL-parameter wordt bij app-boot afgevangen in `app.js` → direct naar het scorebord-scherm.
 - "Sessie hervatten" knop op het home-scherm als er een actieve `session_code` in localStorage staat.
 
-## 10. Onderhoud van dit bestand
+## 11. Onderhoud van dit bestand
 
 - Werk dit CLAUDE.md bij na elke inhoudelijke wijziging (nieuwe/verwijderde bestanden, nieuwe conventies, gewijzigde architectuur, opgeloste of nieuwe bekende kwesties).
 - Commits, pushes, Vercel-deploys en Supabase-acties mogen autonoom zonder bevestiging.

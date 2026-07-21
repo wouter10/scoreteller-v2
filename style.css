@@ -220,6 +220,7 @@ select:focus {
 
 .toast--error { background: var(--danger); }
 .toast--success { background: var(--success); }
+.toast--warning { background: var(--warning); color: #000; }
 
 @keyframes toast-in { from { opacity: 0; transform: translateY(8px); } }
 @keyframes toast-out { to { opacity: 0; transform: translateY(-8px); } }
@@ -414,6 +415,10 @@ select:focus {
   font-weight: 700;
   min-width: 28px;
   text-align: center;
+  background: transparent;
+  color: inherit;
+  font-family: inherit;
+  border-bottom: 1px dotted var(--text-muted);
 }
 
 .pill-btn {
@@ -434,6 +439,101 @@ select:focus {
   display: flex;
   gap: 10px;
   padding: 0 16px 16px;
+}
+
+/* Round history */
+.history-toggle {
+  margin: 0 16px 14px;
+}
+
+.history-section {
+  padding: 0 16px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.history-round {
+  background: var(--bg-card);
+  border-radius: var(--radius-sm);
+  padding: 10px 12px;
+}
+
+.history-round__title {
+  font-size: 0.8rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  margin-bottom: 6px;
+}
+
+.history-round__row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 4px 0;
+}
+
+.history-round__row span:nth-child(2) {
+  flex: 1;
+  font-size: 0.9rem;
+}
+
+.history-round__row span:last-child {
+  font-weight: 700;
+}
+
+/* Numeric keypad overlay */
+.numpad-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10000;
+  padding: 24px;
+}
+
+.numpad-card {
+  background: var(--bg-raised);
+  border-radius: var(--radius);
+  padding: 20px;
+  width: 100%;
+  max-width: 300px;
+}
+
+.numpad-card__title {
+  text-align: center;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.numpad-display {
+  text-align: center;
+  font-size: 2rem;
+  font-weight: 800;
+  padding: 10px 0 16px;
+}
+
+.numpad-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.numpad-grid button {
+  min-height: var(--tap-min);
+  background: var(--bg-card);
+  color: var(--text);
+  font-size: 1.2rem;
+  font-weight: 700;
+  border-radius: var(--radius-sm);
+}
+
+.numpad-actions {
+  display: flex;
+  gap: 10px;
 }
 
 /* ── End screen ─────────────────────────────────────── */
