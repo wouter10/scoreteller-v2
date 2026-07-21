@@ -7,7 +7,7 @@ Scoreteller v2 is een scorekeeping-PWA voor kaartspellen (met name Toepen). Sess
 ## 2. Tech stack
 
 - Geen framework, geen build-stap, geen package.json/npm-dependencies. Platte ES modules, direct geladen via `<script type="module" src="js/app.js">`.
-- **Supabase** voor cloud-opslag en realtime sync: Supabase JS client geladen via ESM CDN (`https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/esm/index.js`). Projectref: `veijzncqjhqvyqbjrdgw` (eu-west-1).
+- **Supabase** voor cloud-opslag en realtime sync: Supabase JS client geladen via `https://esm.sh/@supabase/supabase-js@2`. Projectref: `veijzncqjhqvyqbjrdgw` (eu-west-1).
 - Styling: één handgeschreven globale `style.css` met CSS custom properties in `:root` (`--bg`, `--accent`, `--radius`, `--tap-min: 52px`, …). Geen CSS-modules, geen preprocessor.
 - PWA: `manifest.json` + `sw.js` (network-first met cache-fallback) voor offline/installeerbaarheid.
 - Hosting: statische SPA op Vercel via `vercel.json` (rewrite-all naar `index.html`).
@@ -55,6 +55,7 @@ round_scores    (round_id → rounds, session_player_id → session_players, poi
 - Elke tikbare control is een echt `<button>`-element (nooit een klikbare `<div>`) — hier steunt de globale `button { touch-action: manipulation; }` op. Gebruik `el('button', ...)` of `createButton()`.
 - CSS: hergebruik bestaande custom properties (`--tap-min`, `--radius`, `--radius-sm`, `--transition`, kleurtokens). Klassenamen volgen losse BEM-stijl.
 - ES modules draaien in strict mode — gebruik geen `arguments.callee`. Zie `players.js` voor het `buildPicker()`-patroon als alternatief.
+- Render-functies die bij `registerScreen()` worden doorgegeven moeten **synchroon** een DOM-element retourneren. Gebruik nooit `async` op de outer render-functie — dat geeft een `Promise` terug waar `appendChild` een `Node` verwacht. Async werk (Supabase-fetches) hoort in een inner `init()` die je aanroept vóór de `return wrap;`.
 
 ## 7. Mobiele/iOS-lessen (overgenomen uit v1)
 
@@ -69,6 +70,7 @@ round_scores    (round_id → rounds, session_player_id → session_players, poi
 - `CACHE`-constante in `sw.js` is een versienaam (`scoreteller-v2-1`). Bump bij elke deploy die gebruikersgedrag raakt; de `activate`-handler ruimt oude caches automatisch op.
 - **Precache-lijst (`ASSETS`)** moet elk JS-schermbestand bevatten. Voeg nieuwe schermbestanden hier altijd toe.
 - Supabase/CDN-requests worden bewust **niet gecached** door de service worker (URL-origin check in de fetch handler).
+- **Bekende valkuil**: `cdn.jsdelivr.net` ESM-build van `@supabase/supabase-js` bevat Node.js bare imports en werkt niet in browsers — altijd `esm.sh` gebruiken.
 
 ## 9. Sessiedeling
 
