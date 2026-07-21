@@ -88,6 +88,8 @@ export async function fetchRounds(sessionId) {
     .order('round_number');
   if (roundsErr) throw roundsErr;
 
+  if (!rounds.length) return [];
+
   const { data: scores, error: scoresErr } = await supabase
     .from('round_scores')
     .select('round_id, session_player_id, points')

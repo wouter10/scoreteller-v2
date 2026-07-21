@@ -47,13 +47,15 @@ export function registerPlayersScreen(navigate) {
       colorLabel.textContent = 'Kleur';
       form.appendChild(colorLabel);
 
-      let pickerColor = newColor;
-      let pickerEl = renderColorPicker(pickerColor, (c) => {
-        pickerColor = c; newColor = c;
-        const old = form.querySelector('.color-picker');
-        form.replaceChild(renderColorPicker(c, arguments.callee), old);
-      });
-      form.appendChild(pickerEl);
+      let currentColor = newColor;
+      function buildPicker(selected) {
+        return renderColorPicker(selected, (c) => {
+          currentColor = c; newColor = c;
+          const old = form.querySelector('.color-picker');
+          form.replaceChild(buildPicker(c), old);
+        });
+      }
+      form.appendChild(buildPicker(currentColor));
 
       const btnRow = el('div', { className: 'flex gap-10 mt-12' });
       const btnSave = createButton(editingId ? 'Opslaan' : 'Toevoegen', () => {

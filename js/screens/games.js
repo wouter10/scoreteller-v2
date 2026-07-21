@@ -71,7 +71,7 @@ export function registerGamesScreen(navigate) {
       const btnSave = createButton(editingId ? 'Opslaan' : 'Toevoegen', () => {
         const trimmed = newName.trim();
         if (!trimmed) { showToast('Naam mag niet leeg zijn', 'error'); return; }
-        if (!newMax || newMax < 2) { showToast('Ongeld maximum', 'error'); return; }
+        if (!newMax || newMax < 2) { showToast('Ongeldig maximum', 'error'); return; }
         if (editingId) updateGame(editingId, { name: trimmed, maxPoints: newMax });
         else addGame(trimmed, newMax);
         editingId = null; newName = ''; newMax = 10;

@@ -1,7 +1,6 @@
 import { el, createButton, showToast, showDelta, registerScreen } from '../ui.js';
 import { computeTotals, getEliminatedIds, checkGameOver } from '../gameLogic.js';
 import { fetchSession, fetchSessionPlayers, fetchRounds, submitRound, deleteLastRound, subscribeToSession, unsubscribe } from '../supabase.js';
-import { escapeHtml } from '../ui.js';
 
 export function registerScoreboardScreen(navigate, onSessionEnd) {
   registerScreen('scoreboard', async ({ code }) => {
