@@ -3,7 +3,7 @@ import { computeTotals, getEliminatedIds, checkGameOver } from '../gameLogic.js'
 import { fetchSession, fetchSessionPlayers, fetchRounds, submitRound, deleteLastRound, subscribeToSession, unsubscribe } from '../supabase.js';
 
 export function registerScoreboardScreen(navigate, onSessionEnd) {
-  registerScreen('scoreboard', async ({ code }) => {
+  registerScreen('scoreboard', ({ code }) => {
     const wrap = el('div', { className: 'screen' });
     wrap.innerHTML = '<div class="loading-spinner"><div class="spinner"></div></div>';
 
