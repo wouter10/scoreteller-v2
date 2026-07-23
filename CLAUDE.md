@@ -10,7 +10,7 @@ Scoreteller v2 is een scorekeeping-PWA voor kaartspellen (met name Toepen). Sess
 - **Supabase** voor cloud-opslag en realtime sync: Supabase JS client geladen via `https://esm.sh/@supabase/supabase-js@2`. Projectref: `veijzncqjhqvyqbjrdgw` (eu-west-1).
 - Styling: één handgeschreven globale `style.css` met CSS custom properties in `:root` (`--bg`, `--accent`, `--radius`, `--tap-min: 52px`, …). Geen CSS-modules, geen preprocessor.
 - PWA: `manifest.json` + `sw.js` (network-first met cache-fallback) voor offline/installeerbaarheid.
-- Hosting: statische SPA op Vercel via `vercel.json` (rewrite-all naar `index.html`).
+- Hosting: statische SPA op Vercel via `vercel.json` (rewrite-all naar `index.html`). **Geen automatische GitHub-integratie** — een `git push` naar `main` triggert géén deploy (geverifieerd: geen webhooks/commit-checks op de repo). Live zetten gaat via `npx vercel --prod --yes` (CLI is niet globaal geïnstalleerd, maar werkt via `npx`; sessie is al ingelogd als `wouter10`). Doe dit na elke push die live moet.
 - Geen testsuite, geen CI/CD, geen linter-config.
 
 ## 3. Bestandsstructuur
