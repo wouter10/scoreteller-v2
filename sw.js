@@ -1,4 +1,4 @@
-const CACHE = 'scoreteller-v2-1';
+const CACHE = 'scoreteller-v2-2';
 
 const ASSETS = [
   '/',

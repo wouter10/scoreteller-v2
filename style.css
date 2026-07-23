@@ -315,18 +315,6 @@ select:focus {
   border-bottom: 1px solid rgba(255,255,255,0.06);
 }
 
-.session-code {
-  background: var(--bg-raised);
-  border-radius: var(--radius-xs);
-  padding: 4px 10px;
-  font-size: 0.8rem;
-  font-weight: 700;
-  letter-spacing: 0.1em;
-  color: var(--accent);
-  cursor: pointer;
-  touch-action: manipulation;
-}
-
 .players-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
@@ -478,8 +466,13 @@ select:focus {
   font-size: 0.9rem;
 }
 
-.history-round__row span:last-child {
+.history-round__value {
   font-weight: 700;
+  font-size: 0.9rem;
+  background: transparent;
+  color: inherit;
+  font-family: inherit;
+  border-bottom: 1px dotted var(--text-muted);
 }
 
 /* Numeric keypad overlay */

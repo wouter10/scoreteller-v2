@@ -1,6 +1,6 @@
 import { el, createButton, showToast, showDelta, registerScreen } from '../ui.js';
 import { computeTotals, getEliminatedIds, checkGameOver } from '../gameLogic.js';
-import { fetchSession, fetchSessionPlayers, fetchRounds, submitRound, deleteLastRound, subscribeToSession, unsubscribe } from '../supabase.js';
+import { fetchSession, fetchSessionPlayers, fetchRounds, submitRound, deleteLastRound, updateRoundScore, subscribeToSession, unsubscribe } from '../supabase.js';
 
 export function registerScoreboardScreen(navigate, onSessionEnd) {
   registerScreen('scoreboard', ({ code }) => {
@@ -10,6 +10,7 @@ export function registerScoreboardScreen(navigate, onSessionEnd) {
     let session, players, rounds, channel;
     let pendingScores = {};
     let showHistory = false;
+    let currentRoundNumber = null;
 
     async function load() {
       session = await fetchSession(code);
@@ -35,6 +36,7 @@ export function registerScoreboardScreen(navigate, onSessionEnd) {
 
       pendingScores = {};
       for (const p of players) pendingScores[p.id] = 0;
+      currentRoundNumber = rounds.length + 1;
       render();
 
       channel = subscribeToSession(session.id, {
@@ -56,6 +58,11 @@ export function registerScoreboardScreen(navigate, onSessionEnd) {
       const eliminated  = getEliminatedIds(totals, session.max_points);
       const roundNumber = rounds.length + 1;
 
+      if (roundNumber !== currentRoundNumber) {
+        for (const p of players) pendingScores[p.id] = 0;
+        currentRoundNumber = roundNumber;
+      }
+
       /* Header */
       const header = el('div', { className: 'scoreboard-header' });
       const btnBack = el('button', { className: 'btn-back', onClick: () => { unsubscribe(channel); navigate('home'); } });
@@ -63,14 +70,7 @@ export function registerScoreboardScreen(navigate, onSessionEnd) {
       const gameLabel = el('span', { style: { flex: '1', fontWeight: '600', fontSize: '1rem' } });
       gameLabel.textContent = session.game_name;
 
-      const codeBtn = el('button', { className: 'session-code', onClick: () => {
-        const url = `${location.origin}?join=${code}`;
-        if (navigator.share) navigator.share({ title: 'Scoreteller', text: `Sessie ${code}`, url });
-        else { navigator.clipboard.writeText(url).then(() => showToast('Link gekopieerd!')); }
-      }});
-      codeBtn.textContent = code;
-
-      header.append(btnBack, gameLabel, codeBtn);
+      header.append(btnBack, gameLabel);
 
       /* Player cards grid */
       const grid = el('div', { className: 'players-grid' });
@@ -119,7 +119,20 @@ export function registerScoreboardScreen(navigate, onSessionEnd) {
               const dot = el('div', { className: 'color-dot', style: { background: p ? p.color : '#888' } });
               const name = el('span');
               name.textContent = p ? p.name : '?';
-              const pts = el('span');
+              const pts = el('button', { className: 'history-round__value', onClick: () => openNumpad({
+                title: `${p ? p.name : '?'} — Ronde ${round.round_number}`,
+                initialValue: s.points,
+                maxPoints: session.max_points,
+                onConfirm: async (value) => {
+                  try {
+                    await updateRoundScore(round.id, s.session_player_id, value);
+                    rounds = await fetchRounds(session.id);
+                  } catch (err) {
+                    showToast('Fout bij bewerken: ' + err.message, 'error');
+                  }
+                  render();
+                },
+              }) });
               pts.textContent = s.points;
               row.append(dot, name, pts);
               roundCard.appendChild(row);
@@ -149,7 +162,15 @@ export function registerScoreboardScreen(navigate, onSessionEnd) {
         }});
         btnMinus.textContent = '−';
 
-        const valueEl = el('button', { className: 'round-input-row__value', onClick: () => openNumpad(p, valueEl) });
+        const valueEl = el('button', { className: 'round-input-row__value', onClick: () => openNumpad({
+          title: p.name,
+          initialValue: pendingScores[p.id] ?? 0,
+          maxPoints: session.max_points,
+          onConfirm: (value) => {
+            pendingScores[p.id] = value;
+            valueEl.textContent = value;
+          },
+        }) });
         valueEl.textContent = pendingScores[p.id] ?? 0;
 
         const btnPlus = el('button', { className: 'pill-btn', onClick: () => {
@@ -192,9 +213,8 @@ export function registerScoreboardScreen(navigate, onSessionEnd) {
             }
           }
 
-          for (const p of players) pendingScores[p.id] = 0;
-
           if (checkGameOver(newTotals, session.max_points)) {
+            unsubscribe(channel);
             onSessionEnd(session, players, rounds);
             return;
           }
@@ -229,6 +249,7 @@ export function registerScoreboardScreen(navigate, onSessionEnd) {
 
       const endBtn = createButton('Sessie beëindigen', () => {
         if (confirm('Sessie beëindigen? Dit kan niet ongedaan worden gemaakt.')) {
+          unsubscribe(channel);
           onSessionEnd(session, players, rounds);
         }
       }, 'btn btn--danger btn--icon', );
@@ -242,14 +263,14 @@ export function registerScoreboardScreen(navigate, onSessionEnd) {
       wrap.append(inputSection, controls, footer);
     }
 
-    function openNumpad(p, valueEl) {
+    function openNumpad({ title: titleText, initialValue, maxPoints, onConfirm }) {
       let typed = '';
-      let negative = (pendingScores[p.id] ?? 0) < 0;
+      let negative = (initialValue ?? 0) < 0;
 
       const overlay = el('div', { className: 'numpad-overlay', onClick: (e) => { if (e.target === overlay) close(); } });
       const card = el('div', { className: 'numpad-card' });
       const title = el('p', { className: 'numpad-card__title' });
-      title.textContent = p.name;
+      title.textContent = titleText;
       const display = el('p', { className: 'numpad-display' });
 
       function updateDisplay() {
@@ -275,9 +296,8 @@ export function registerScoreboardScreen(navigate, onSessionEnd) {
       const btnOk = createButton('Bevestigen ✓', () => {
         let value = typed ? parseInt(typed, 10) : 0;
         if (negative) value = -value;
-        value = Math.min(value, session.max_points);
-        pendingScores[p.id] = value;
-        valueEl.textContent = value;
+        value = Math.min(value, maxPoints);
+        onConfirm(value);
         close();
       }, 'btn btn--primary btn--full');
       actions.append(btnCancel, btnOk);

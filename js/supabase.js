@@ -111,6 +111,15 @@ export async function deleteLastRound(sessionId, roundNumber) {
   if (error) throw error;
 }
 
+export async function updateRoundScore(roundId, sessionPlayerId, points) {
+  const { error } = await supabase
+    .from('round_scores')
+    .update({ points })
+    .eq('round_id', roundId)
+    .eq('session_player_id', sessionPlayerId);
+  if (error) throw error;
+}
+
 /* ── Realtime ───────────────────────────────────────── */
 export function subscribeToSession(sessionId, callbacks) {
   const channel = supabase.channel(`session-${sessionId}`)

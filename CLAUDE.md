@@ -20,7 +20,7 @@ Scoreteller v2 is een scorekeeping-PWA voor kaartspellen (met name Toepen). Sess
 - `js/screens/*.js` — één bestand per scherm (`home.js`, `newSession.js`, `scoreboard.js`, `end.js`, `players.js`, `games.js`, `stats.js`). Elk exporteert een `registerXScreen(navigate, ...)` die een render-functie registreert bij `ui.js`.
 - `js/ui.js` — DOM-helpers: `registerScreen()`, `renderScreen()`, `el()`, `createButton()`, `escapeHtml()`, `showToast()`, `showDelta()`. Raakt nooit localStorage of Supabase direct aan.
 - `js/data.js` — enige module die localStorage aanraakt. Keys: `st_players`, `st_games`, `st_active_session`, `st_sessions_history`. Bevat ook `PLAYER_COLORS` en `generateId()`.
-- `js/supabase.js` — Supabase client-init + alle DB-operaties (`createSession`, `fetchSession`, `createSessionPlayers`, `fetchSessionPlayers`, `submitRound`, `fetchRounds`, `deleteLastRound`, `endSession`) + realtime (`subscribeToSession`, `unsubscribe`).
+- `js/supabase.js` — Supabase client-init + alle DB-operaties (`createSession`, `fetchSession`, `createSessionPlayers`, `fetchSessionPlayers`, `submitRound`, `fetchRounds`, `deleteLastRound`, `updateRoundScore`, `endSession`) + realtime (`subscribeToSession`, `unsubscribe`).
 - `js/gameLogic.js` — pure functies zonder DOM/localStorage: `computeTotals`, `getEliminatedIds`, `checkGameOver`, `buildSessionResult`, `generateSessionCode`.
 - `style.css` — globale stylesheet voor alle schermen.
 - `manifest.json`, `sw.js` — PWA-installatie + offline caching.
@@ -45,6 +45,7 @@ round_scores    (round_id → rounds, session_player_id → session_players, poi
 
 - **Actieve sessiestate** leeft in geheugen in `js/screens/scoreboard.js` (`session`, `players`, `rounds`), initieel geladen vanuit Supabase.
 - **Realtime**: Supabase-subscriptions op `rounds` en `sessions` houden de state bij als andere apparaten wijzigingen doorvoeren. `round_scores` wordt indirect afgevangen door `onScoreChange` → her-fetch rounds.
+- **Self-echo bij sessie-einde**: de eigen `endSession()`-update op de `sessions`-tabel komt via de realtime-subscription ook bij het eigen kanaal terug. Daarom wordt bij elke plek die een sessie beëindigt (`btnConfirm` bij game-over, "Sessie beëindigen"-knop in `scoreboard.js`) eerst `unsubscribe(channel)` aangeroepen, vóórdat `onSessionEnd(...)` wordt getriggerd — anders vuurt `onSessionChange` alsnog en wordt de eindstand dubbel afgehandeld. Als extra vangnet houdt `end.js` een in-memory `Set` van al opgeslagen `session.id`'s bij, zodat `addSessionToHistory` sowieso maar één keer per sessie draait, ook als het `end`-scherm om een andere reden (bv. browser terug/vooruit) opnieuw gerenderd wordt.
 - **localStorage** (via `data.js`): spelersbibliotheek, spellenlijst, laatste actieve `session_code` (voor "hervatten bij heropenen"), sessiegeschiedenis voor statistieken.
 - Schermen gaan altijd via `data.js` voor localStorage en via `supabase.js` voor Supabase — nooit direct `localStorage.getItem/setItem` of `supabase.*` in een scherm.
 
@@ -68,7 +69,7 @@ round_scores    (round_id → rounds, session_player_id → session_players, poi
 ## 8. Service worker / cache-strategie
 
 - **Network-first**: elke fetch probeert eerst het netwerk, valt pas terug op de cache als dat faalt. Nooit cache-first (anders zien gebruikers eeuwig een oude versie).
-- `CACHE`-constante in `sw.js` is een versienaam (`scoreteller-v2-1`). Bump bij elke deploy die gebruikersgedrag raakt; de `activate`-handler ruimt oude caches automatisch op.
+- `CACHE`-constante in `sw.js` is een versienaam (`scoreteller-v2-2`). Bump bij elke deploy die gebruikersgedrag raakt; de `activate`-handler ruimt oude caches automatisch op.
 - **Precache-lijst (`ASSETS`)** moet elk JS-schermbestand bevatten. Voeg nieuwe schermbestanden hier altijd toe.
 - Supabase/CDN-requests worden bewust **niet gecached** door de service worker (URL-origin check in de fetch handler).
 - **Bekende valkuil**: `cdn.jsdelivr.net` ESM-build van `@supabase/supabase-js` bevat Node.js bare imports en werkt niet in browsers — altijd `esm.sh` gebruiken.
@@ -77,13 +78,15 @@ round_scores    (round_id → rounds, session_player_id → session_players, poi
 
 - Default `maxPoints` voor een nieuw/eerste "Toepen"-spel (localStorage-seed in `data.js`, en het "nieuw spel"-formulier in `games.js`) is **15**. `max_points` blijft volledig instelbaar per spel via het Spellen-scherm — dit is alleen de default, geen harde grens.
 - **"Op Pelt"-melding**: in `scoreboard.js` (`btnConfirm`-handler) wordt na elke bevestigde ronde per speler gecontroleerd of die *nét* op `session.max_points - 1` is beland (overgang t.o.v. vóór de ronde, niet bij elke render). Zo ja: `showToast('${naam} staat op Pelt', 'warning')`. Werkt generiek op basis van `max_points`, dus ongeacht de daadwerkelijk ingestelde puntengrens.
-- **Ronde-invoer wordt na bevestigen gereset** naar 0 (`pendingScores`), net als bij "Wis invoer" — anders bleven de zojuist ingevulde waarden staan als startpunt voor de volgende ronde.
+- **Ronde-invoer wordt gereset op basis van rondenummer, niet alleen na bevestigen**: `render()` in `scoreboard.js` vergelijkt het berekende `roundNumber` (`rounds.length + 1`) met de bijgehouden `currentRoundNumber`; zodra dat verschilt, wordt `pendingScores` naar 0 gereset. Dit dekt niet alleen de eigen `btnConfirm`, maar ook de realtime-callbacks (`onRoundChange`/`onScoreChange`) die anders vóór de expliciete reset konden vuren (race condition — de invoer van de vorige ronde bleef dan zichtbaar staan bij de volgende ronde) én het geval dat een ander apparaat een ronde bevestigt.
 - **Negatieve scores zijn toegestaan** in de ronde-invoer: de min-knop (`btnMinus`) heeft geen ondergrens (bewust, op gebruikersverzoek). De plus-knop blijft geklemd op `session.max_points`.
-- **Ronde-geschiedenis**: inklapbare sectie op het scorebord (`showHistory`-toggle in `scoreboard.js`, geen apart scherm) die per ronde (nieuwste eerst) de ingevulde punten per speler toont, opgebouwd uit de al aanwezige `rounds`/`fetchRounds`-data — geen extra Supabase-call.
+- **Handmatige invoer**: tikken op de scoreweergave zelf (`round-input-row__value`) opent `openNumpad()` om direct een getal te typen i.p.v. herhaald op +/− te tikken.
+- **`openNumpad()` is generiek**: signatuur `openNumpad({ title, initialValue, maxPoints, onConfirm })` — herbruikbaar voor zowel de ronde-invoer als het bewerken van een historische ronde-score (zie hieronder), i.p.v. hardcoded op `pendingScores`.
+- **Ronde-geschiedenis**: inklapbare sectie op het scorebord (`showHistory`-toggle in `scoreboard.js`, geen apart scherm) die per ronde (nieuwste eerst) de ingevulde punten per speler toont, opgebouwd uit de al aanwezige `rounds`/`fetchRounds`-data — geen extra Supabase-call. Elke score in de geschiedenis is tikbaar en opent `openNumpad()` om die waarde te corrigeren; bevestigen roept `updateRoundScore(roundId, sessionPlayerId, points)` (`supabase.js`) aan en herlaadt daarna `rounds`, wat totals/eliminatie automatisch herberekent.
 
 ## 10. Sessiedeling
 
-- Sessiecode (6 uppercase alfanumerieke karakters) wordt getoond in de header van het scorebord en is klikbaar: deelt via Web Share API op ondersteunde apparaten, of kopieert de `?join=CODE` URL naar klembord.
+- De zichtbare sessiecode-knop (deel/kopieer) in de scorebord-header is **verwijderd op gebruikersverzoek** — deze functionaliteit wordt niet gebruikt. De onderliggende `code`/`?join=`-mechaniek blijft intact, er is alleen geen UI meer die hem toont of deelt.
 - `?join=` URL-parameter wordt bij app-boot afgevangen in `app.js` → direct naar het scorebord-scherm.
 - "Sessie hervatten" knop op het home-scherm als er een actieve `session_code` in localStorage staat.
 

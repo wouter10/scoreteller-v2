@@ -1,15 +1,15 @@
 import { el, createButton, registerScreen } from '../ui.js';
 import { buildSessionResult } from '../gameLogic.js';
 import { addSessionToHistory } from '../data.js';
-import { endSession } from '../supabase.js';
+
+const savedSessionIds = new Set();
 
 export function registerEndScreen(navigate) {
   registerScreen('end', ({ session, players, rounds }) => {
     const result = buildSessionResult(session, players, rounds);
-    addSessionToHistory(result);
-
-    if (session.status !== 'ended') {
-      endSession(session.id).catch(() => {});
+    if (!savedSessionIds.has(session.id)) {
+      savedSessionIds.add(session.id);
+      addSessionToHistory(result);
     }
 
     const wrap = el('div', { className: 'screen' });
