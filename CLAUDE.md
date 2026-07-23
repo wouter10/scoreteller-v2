@@ -84,13 +84,23 @@ round_scores    (round_id → rounds, session_player_id → session_players, poi
 - **`openNumpad()` is generiek**: signatuur `openNumpad({ title, initialValue, maxPoints, onConfirm })` — herbruikbaar voor zowel de ronde-invoer als het bewerken van een historische ronde-score (zie hieronder), i.p.v. hardcoded op `pendingScores`.
 - **Ronde-geschiedenis**: inklapbare sectie op het scorebord (`showHistory`-toggle in `scoreboard.js`, geen apart scherm) die per ronde (nieuwste eerst) de ingevulde punten per speler toont, opgebouwd uit de al aanwezige `rounds`/`fetchRounds`-data — geen extra Supabase-call. Elke score in de geschiedenis is tikbaar en opent `openNumpad()` om die waarde te corrigeren; bevestigen roept `updateRoundScore(roundId, sessionPlayerId, points)` (`supabase.js`) aan en herlaadt daarna `rounds`, wat totals/eliminatie automatisch herberekent.
 
-## 10. Sessiedeling
+## 10. Homescherm-thema (pokertafel/kaartspel)
+
+- Het homescherm (`js/screens/home.js`) is visueel herontworpen naar een pokertafel-thema, geïmporteerd vanuit een Claude Design-project (`claude.ai/design`, project "Scoreteller 2-app toegang", bestand `Scoreteller Hoofdpagina.dc.html`) via de `claude_design` MCP-tool (`DesignSync` methode `get_file`).
+- Structuur: `.home-felt` (bruine achtergrond-gradient, volledige hoogte) → `.home-card` (gouden gradient-rand) → `.home-table` (donkergroen vilt met subtiele ruitpatroon-textuur en ♠/♥ watermerken via `::before`/`::after`).
+- Typografie: **Cinzel** (titel "Scoreteller", serif, zwaar) + **Poppins** (body), beide geladen via Google Fonts `<link>`-tags in `index.html` (niet zelf gehost — bewust, geen build-stap om fonts te bundelen). Deze externe requests worden door `sw.js` niet gecached (cross-origin, zie §8) — de browser doet dat native.
+- Kleurtoken `--gold: #c9a24b` toegevoegd aan `:root` in `style.css`, naast de bestaande tokens.
+- Alle content blijft via `el()` opgebouwd (geen aparte `.dc.html`-runtime/`support.js` meegenomen — dat hoort bij de Claude Design-preview-omgeving, niet bij de gebouwde app). De `{{ goldA }}`-template-placeholder uit het origineel is vertaald naar de CSS-variabele `var(--gold)`.
+- Bestaande functionaliteit die niet in het design zat (bv. "Sessie hervatten"-knop, zie §10 hieronder) is behouden en gestyled passend bij het nieuwe thema (`.btn--felt-secondary`).
+- Decoratieve elementen (pokerchips `.home-chip`, gloed-animatie op de hoofdknop `.btn--felt-primary`) gebruiken CSS `animation`; geen JS-timers.
+
+## 11. Sessiedeling
 
 - De zichtbare sessiecode-knop (deel/kopieer) in de scorebord-header is **verwijderd op gebruikersverzoek** — deze functionaliteit wordt niet gebruikt. De onderliggende `code`/`?join=`-mechaniek blijft intact, er is alleen geen UI meer die hem toont of deelt.
 - `?join=` URL-parameter wordt bij app-boot afgevangen in `app.js` → direct naar het scorebord-scherm.
 - "Sessie hervatten" knop op het home-scherm als er een actieve `session_code` in localStorage staat.
 
-## 11. Onderhoud van dit bestand
+## 12. Onderhoud van dit bestand
 
 - Werk dit CLAUDE.md bij na elke inhoudelijke wijziging (nieuwe/verwijderde bestanden, nieuwe conventies, gewijzigde architectuur, opgeloste of nieuwe bekende kwesties).
 - Commits, pushes, Vercel-deploys en Supabase-acties mogen autonoom zonder bevestiging.
